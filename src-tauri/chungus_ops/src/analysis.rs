@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use crate::error::CoreError;
 use crate::file::{find_highest_path, FileTree};
+use crate::logging::ClientSideLogger;
 use crate::webpack_report::{Chunk, WebpackReport};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -106,11 +107,12 @@ impl Iterator for GroupPaths {
 }
 
 impl Analysis {
-  #[tracing::instrument(skip(resolver, cache))]
+  #[tracing::instrument(skip(resolver, cache, logger))]
   pub fn create_from_cache(
     resolver: &Resolver,
     cache: &DependencyCache,
     entrypoint: &Location,
+    logger: &impl ClientSideLogger,
   ) -> Result<Self, CoreError> {
     tracing::info!("Creating analysis at entry: {:?}", &entrypoint);
     // do some wild iteraton
@@ -180,7 +182,7 @@ impl Analysis {
       },
     };
 
-    analysis.populate(resolver, cache)?;
+    analysis.populate(resolver, cache, &*logger)?;
 
     {
       let highest_path = find_highest_path(
@@ -197,8 +199,9 @@ impl Analysis {
             .iter()
             .map(|node| node.read().full_path.clone()),
         );
-
+        logger.message("Creating analysis navigation tree");
         let tree = FileTree::open_from_root_path(&resolver, highest_path.as_ref(), &Some(filter))?;
+
         analysis.file_tree = Some(tree);
       };
     }
@@ -324,8 +327,13 @@ impl Analysis {
     }
   }
 
-  #[tracing::instrument(skip(self, resolver, cache))]
-  fn populate(&mut self, resolver: &Resolver, cache: &DependencyCache) -> Result<(), CoreError> {
+  #[tracing::instrument(skip(self, resolver, cache, logger))]
+  fn populate(
+    &mut self,
+    resolver: &Resolver,
+    cache: &DependencyCache,
+    logger: &impl ClientSideLogger,
+  ) -> Result<(), CoreError> {
     let mut queue = vec![(self.entrypoint.clone(), 0usize)];
 
     while !queue.is_empty() {
@@ -352,6 +360,7 @@ impl Analysis {
 
       let mut outgoing = HashSet::new();
       for dependency in dependencies {
+        logger.message(format!("Processing {:?}", &dependency));
         tracing::trace!("Processing dependency at {:?}", &dependency);
         let is_node_module = cache
           .get(&dependency)
