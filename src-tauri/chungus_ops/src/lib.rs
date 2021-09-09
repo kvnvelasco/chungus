@@ -6,6 +6,7 @@ pub use parking_lot::RwLock;
 
 use crate::error::CoreError;
 use crate::file::{process_javascript_file, process_package_json};
+use crate::logging::ClientSideLogger;
 use crate::module::{Asset, Location, Module};
 use crate::resolve::Resolver;
 
@@ -13,12 +14,12 @@ pub mod analysis;
 pub mod dependency_graph;
 pub mod error;
 pub mod file;
+pub mod logging;
 pub mod module;
 pub mod module_cache;
 pub mod parser;
 pub mod resolve;
 pub mod webpack_report;
-
 pub fn start_resolve_project(
   project_root: impl AsRef<Path>,
   included_directories: Vec<PathBuf>,
@@ -27,19 +28,22 @@ pub fn start_resolve_project(
   Ok(Resolver::new(&location, included_directories))
 }
 
-#[tracing::instrument(skip(cache, target, resolver))]
+#[tracing::instrument(skip(cache, target, resolver, logger))]
 pub fn build_dependency_cache(
   resolver: &Resolver,
   target: impl AsRef<Path>,
   cache: &mut HashMap<Location, Module>,
+  logger: &impl ClientSideLogger,
 ) -> Result<(), CoreError> {
   let file = Location::new(target)?;
 
   tracing::info!("Start build dependency cache {:?}", &file);
 
   let root_module = process_javascript_file(&resolver, &file)?;
+  logger.message("Loaded root module");
+
   cache.insert(file.clone(), root_module.clone());
-  recursively_build_dependency_tree(cache, &resolver, root_module)?;
+  recursively_build_dependency_tree(cache, &resolver, root_module, &*logger)?;
 
   tracing::info!("Built dependency cache {:?}", &file);
   Ok(())
@@ -47,11 +51,12 @@ pub fn build_dependency_cache(
 
 pub type DependencyCache = HashMap<Location, Module>;
 
-#[tracing::instrument(skip(cache, resolver, module))]
+#[tracing::instrument(skip(cache, resolver, module, logger))]
 pub fn recursively_build_dependency_tree(
   cache: &mut DependencyCache,
   resolver: &Resolver,
   module: Module,
+  logger: &impl ClientSideLogger,
 ) -> Result<(), CoreError> {
   tracing::debug!("Resolving tree for module {:?}", &module.location);
 
@@ -69,6 +74,7 @@ pub fn recursively_build_dependency_tree(
           target_file,
           package_directory,
         } => {
+          logger.message(format!("Resolving node module {:?}", &package_directory));
           let mut module = process_package_json(&resolver, package_directory)?;
           // this has two cache entries one for the dependency itself and one for the package
           tracing::debug!("Inserting: {:?} into {:?}", module.kind, &target_file);
@@ -81,17 +87,18 @@ pub fn recursively_build_dependency_tree(
 
           cache.insert(target_file.clone(), module.clone());
 
-          recursively_build_dependency_tree(cache, resolver, module);
+          recursively_build_dependency_tree(cache, resolver, module, &*logger);
         }
         Asset::Asset(path) => {
           tracing::debug!("{:?} is an asset. No expansion required", &path)
           // stop. No further expansion here
         }
         Asset::Module(path) => {
+          logger.message(format!("Resolving module {:?}", &path));
           let next_module = process_javascript_file(&resolver, path)?;
           tracing::debug!("Inserting: {:?} into {:?}", module.kind, &path);
           cache.insert(path.clone(), next_module.clone());
-          recursively_build_dependency_tree(cache, resolver, next_module);
+          recursively_build_dependency_tree(cache, resolver, next_module, &*logger);
         }
         Asset::Unresolved(path) => {
           tracing::debug!("{:?} could not be resolved", &path)

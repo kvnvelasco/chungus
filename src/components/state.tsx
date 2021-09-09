@@ -1,8 +1,14 @@
 import { useEventSyncedState } from "./EventSyncedState";
-import React, { createContext, useContext, useMemo } from "react";
+import React, {createContext, useContext, useEffect, useMemo, useState} from "react";
 import { invoke } from "@tauri-apps/api/tauri";
 import { AppToaster } from "./Toaster";
 import { Intent } from "@blueprintjs/core";
+import {listen} from "@tauri-apps/api/event";
+
+export type AppLock = {
+  loading: boolean,
+  message: string | null
+}
 
 export type ApplicationState = {
   active_directory: string | null;
@@ -30,6 +36,25 @@ const Context = createContext<{
   loading: boolean;
   set: any;
 }>({ state: null, loading: false, set: () => {} });
+
+export function useAppLoading() {
+  const [loading, setLoading] = useState({loading: false, message: ""} as AppLock )
+
+  useEffect(() => {
+    listen("loading::true", () => {
+      setLoading({loading: true, message: null})
+    })
+    listen("loading::message", (message) => {
+      setLoading(load => ({...load, message: message.payload as string}))
+    })
+    listen("loading::false", () => {
+      setLoading({loading: false, message: null})
+    })
+  }, [])
+
+  console.log({loading})
+  return loading
+}
 
 export function ApplicationStateProvider({
   children,
@@ -77,7 +102,7 @@ export type Analysis = {
 };
 
 export type AnalysisNode = {
-  identifier: string,
+  identifier: string;
   full_path: string;
   stem: string;
   chunk: number;
@@ -164,7 +189,6 @@ export function useEntrypointAnalysis(): [
       state.analysis_groups.sort((a, b) => a.depth - b.depth);
 
       return state as any;
-
     }
 
     return null;

@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { emit, listen, UnlistenFn } from "@tauri-apps/api/event";
+import { useEffect, useMemo, useState } from "react";
+import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/tauri";
-import {AppToaster} from "./Toaster";
-import {Intent} from "@blueprintjs/core";
+import { AppToaster } from "./Toaster";
+import { Intent } from "@blueprintjs/core";
 
 const LISTENERS: Record<string, Promise<UnlistenFn>[]> = {};
 
@@ -12,7 +12,7 @@ export function useEventSyncedState<T extends {}>(
   const [loading, setLoading] = useState(false);
   const [state, setState] = useState(null as T | null);
 
-  const [event_name, sync] = useMemo(
+  const [event_name, ] = useMemo(
     () => sync_event.split("::"),
     [sync_event]
   );
@@ -20,14 +20,19 @@ export function useEventSyncedState<T extends {}>(
   // initial sync
   useEffect(() => {
     const getter = `get_${event_name}`;
-    setLoading(true)
-    invoke(getter).then((value) => {
-      requestAnimationFrame(() => setState(value as T))
-      setLoading(false)
-    }).catch((e) => {
-      AppToaster.show({message: `Unable to synchronise ${event_name}`, intent: Intent.DANGER})
-      setLoading(false)
-    });
+    setLoading(true);
+    invoke(getter)
+      .then((value) => {
+        requestAnimationFrame(() => setState(value as T));
+        setLoading(false);
+      })
+      .catch(() => {
+        AppToaster.show({
+          message: `Unable to synchronise ${event_name}`,
+          intent: Intent.DANGER,
+        });
+        setLoading(false);
+      });
   }, [event_name]);
 
   useEffect(() => {
@@ -36,12 +41,15 @@ export function useEventSyncedState<T extends {}>(
     function listener() {
       return listen(sync_event, async () => {
         try {
-          setLoading(true)
+          setLoading(true);
           let value: T = await invoke(getter);
-          requestAnimationFrame(() => setState(value))
-          setLoading(false)
-        } catch(e) {
-          AppToaster.show({message: `Unable to synchronise ${event_name}`, intent: Intent.DANGER})
+          requestAnimationFrame(() => setState(value));
+          setLoading(false);
+        } catch (e) {
+          AppToaster.show({
+            message: `Unable to synchronise ${event_name}`,
+            intent: Intent.DANGER,
+          });
         }
       });
     }

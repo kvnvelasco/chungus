@@ -1,18 +1,10 @@
 // @ts-nocheck
 
-import { useApplicationState, useEntrypointAnalysis } from "./state";
+import {useApplicationState, useEntrypointAnalysis} from "./state";
 import * as d3 from "d3";
-import { ascending, cluster, curveBundle, hierarchy, lineRadial } from "d3";
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Checkbox,
-  Classes,
-  Colors,
-  FormGroup,
-  NumericInput,
-  RangeSlider,
-  Switch,
-} from "@blueprintjs/core";
+import {ascending, cluster, curveBundle, hierarchy, lineRadial} from "d3";
+import {useEffect, useMemo, useRef, useState} from "react";
+import {Checkbox, Classes, Colors, FormGroup, RangeSlider, Switch,} from "@blueprintjs/core";
 
 const PIXEL_RATIO = (function () {
   var ctx = document.createElement("canvas").getContext("2d"),
@@ -58,6 +50,12 @@ export function TreeMap({
   });
 
   useEffect(() => {
+    if (showTransitiveDependencies) {
+    } // do nothing we just want the dependency;
+    setMaxDepth([1, 2]);
+  }, [showTransitiveDependencies]);
+
+  useEffect(() => {
     requestAnimationFrame(() => {
       if (container.current == null) return;
       const { width, height } = container.current.getBoundingClientRect();
@@ -68,7 +66,7 @@ export function TreeMap({
 
   const data = useMemo(() => {
     if (analysis != null && selectedPaths.size > 0) {
-      let data = {};
+      let data: {};
       const nodes = analysis.analysis_groups
         .filter((group) => selectedPaths.has(group.full_path))
         .concat(
@@ -229,13 +227,11 @@ export function TreeMap({
         const fontSize = 14;
         context.font = `${fontSize}px Helvetica`;
 
-        {
-          // Reset the canvas
-          context.setTransform(PIXEL_RATIO, 0, 0, PIXEL_RATIO, 0, 0);
-          context.moveTo(0, 0);
-          context.clearRect(0, 0, canvas.width, canvas.height);
-          context.moveTo(0, 0);
-        }
+        // Reset the canvas
+        context.setTransform(PIXEL_RATIO, 0, 0, PIXEL_RATIO, 0, 0);
+        context.moveTo(0, 0);
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.moveTo(0, 0);
 
         context.setTransform(...transform);
 
@@ -261,8 +257,7 @@ export function TreeMap({
                 Colors.FOREST1,
                 Colors.SEPIA1,
               ];
-              const color = colors[leaf.data.chunk % 8];
-              context.fillStyle = color;
+              context.fillStyle = colors[leaf.data.chunk % 8];
             }
 
             if (leaf.data.is_node_module) {
@@ -307,7 +302,6 @@ export function TreeMap({
           }
           context.restore();
         });
-
 
         edges.forEach(([edge, depth]) => {
           if (!(depth >= maxDepth[0] && depth <= maxDepth[1])) {

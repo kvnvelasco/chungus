@@ -75636,7 +75636,7 @@ failures:
                 parsed_size: 3113655,
             },
         ],
-        "/home/kevin_velasco/data_disk/Projects/mathspace/mathspace/local_modules/ms-pages/Teacher/NewTemplateLibrary/components/Sidebar.jsx": [
+        "/home/kevin_velasco/data_disk/Projects/mathspace/mathspace/local_modules/ms-pages/Teacher/NewTemplateLibrary/components/Sidebar.tsx": [
             Chunk {
                 id: 38,
                 name: "",

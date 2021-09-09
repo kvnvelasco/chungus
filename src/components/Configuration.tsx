@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
 import {
   Classes,
-  Dialog,
   FileInput,
   FormGroup,
   InputGroup,
@@ -69,7 +68,7 @@ export function ConfigurationPanel() {
               text={applicationState?.active_directory ?? "Select a directory"}
               onClick={(e) => {
                 e.preventDefault();
-                invoke("create_webpack_statstics")
+                invoke("create_webpack_statstics");
               }}
             />
           </FormGroup>
